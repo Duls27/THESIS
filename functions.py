@@ -5,10 +5,9 @@ from PIL import Image
 import math
 import cv2
 
-def detect_optics (path: str, path_ooutput: str, file_name: str):
+def detect_optics (img: np.ndarray, path_ooutput: str, file_name: str):
     pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
     # Read image from which text needs to be extracted
-    img = cv2.imread(path)
 
     # Preprocessing the image starts
 
@@ -66,45 +65,73 @@ def detect_optics (path: str, path_ooutput: str, file_name: str):
         # Close the file
         file.close
 
-def canny_houge_rotation(img: str, ouput_path: str, file_name: str):
-    img_before = cv2.imread(img)
-
-    #cv2.namedWindow("Before", cv2.WINDOW_NORMAL)
-    #cv2.imshow("Before", img_before)
-    #key = cv2.waitKey(0)
-
+def canny_houge_rotation(img_before: np.ndarray):
     img_gray = cv2.cvtColor(img_before, cv2.COLOR_BGR2GRAY)
     img_edges = cv2.Canny(img_gray, 100, 200, apertureSize=5)
-
-    #cv2.namedWindow("Canny", cv2.WINDOW_NORMAL)
-    #cv2.imshow("Canny", img_edges)
-    #key = cv2.waitKey(0)
-
     lines = cv2.HoughLinesP(img_edges, 1, math.pi / 180.0, 100, minLineLength=100, maxLineGap=5)
 
     angles = []
-
     for [[x1, y1, x2, y2]] in lines:
-        cv2.line(img_before, (x1, y1), (x2, y2), (255, 0, 0), 2)
+        #cv2.line(img_before, (x1, y1), (x2, y2), (255, 0, 0), 2)
         angle = math.degrees(math.atan2(y2 - y1, x2 - x1))
         angles.append(angle)
 
-    #cv2.namedWindow("Detected lines", cv2.WINDOW_NORMAL)
-    #cv2.imshow("Detected lines", img_before)
-    #key = cv2.waitKey(0)
     median_angle = np.median(angles)
     if median_angle != float(-90.000):
         img_rotated = ndimage.rotate(img_before, median_angle)
-        print(median_angle)
     else:
         img_rotated=img_before
-        print("no angle")
 
     cv2.namedWindow("Image Rooteted", cv2.WINDOW_NORMAL)
     cv2.imshow("Image Rooteted", img_rotated)
     key = cv2.waitKey(0)
 
-    cv2.imwrite(str(ouput_path+file_name), img_rotated)
+    return img_rotated
+
+def crop_ecg_optics (img: np.ndarray):
+    pic=img
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255, 1, 1, 11, 2)
+
+    contours, hierachy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    max_area = 0
+    c = 0
+    for i in contours:
+        area = cv2.contourArea(i)
+        if area > max_area:
+            max_area = area
+            best_cnt = i
+            #img = cv2.drawContours(img, contours, c, (0, 255, 0), 3)
+        c += 1
+
+    mask = np.zeros((gray.shape), np.uint8)
+    cv2.drawContours(mask, [best_cnt], 0, 255, -1)
+
+    out = np.zeros_like(gray)
+    out[mask == 255] = gray[mask == 255]
+    ones_part = out[~np.all(out == 0, axis=1)]
+    zero_part = out[np.all(out == 0, axis=1)]
+
+    ecg= pic[pic.shape[0]-ones_part.shape[0]:, pic.shape[1]-ones_part.shape[1]:]
+    subj_data=pic[:zero_part.shape[0], :zero_part.shape[1]]
+
+    cv2.namedWindow("ecg", cv2.WINDOW_NORMAL)
+    cv2.imshow("ecg", ecg)
+    key = cv2.waitKey(0)
+
+    cv2.namedWindow("subj_data", cv2.WINDOW_NORMAL)
+    cv2.imshow("subj_data", subj_data)
+    key = cv2.waitKey(0)
+
+    return ecg, subj_data
+
+
+
+
+
 
 def find_sudoku(img: str):
     image = cv2.imread(img)
@@ -168,7 +195,6 @@ def find_sudoku(img: str):
     key = cv2.waitKey(0)
     """
     cv2.destroyAllWindows()
-
 
 def cca_analisys (img: str):
     # Loading the image
@@ -243,52 +269,4 @@ def cca_analisys (img: str):
             cv2.imshow("Filtered Components", output)
 
     cv2.destroyAllWindows()
-
-
-
-def test (img: str):
-    image = cv2.imread(img)
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255, 1, 1, 11, 2)
-
-    cv2.namedWindow("thresh", cv2.WINDOW_NORMAL)
-    cv2.imshow("thresh", thresh)
-    key = cv2.waitKey(0)
-
-    contours, hierachy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    max_area = 0
-    c = 0
-    for i in contours:
-        area = cv2.contourArea(i)
-        if area > max_area:
-            max_area = area
-            best_cnt = i
-            image = cv2.drawContours(image, contours, c, (0, 255, 0), 3)
-        c += 1
-
-    cv2.namedWindow("image", cv2.WINDOW_NORMAL)
-    cv2.imshow("image", image)
-    key = cv2.waitKey(0)
-
-    mask = np.zeros((gray.shape), np.uint8)
-    cv2.drawContours(mask, [best_cnt], 0, 255, -1)
-
-    pic = cv2.imread(img)
-    out = np.zeros_like(gray)
-    out[mask == 255] = gray[mask == 255]
-    ones_part = out[~np.all(out == 0, axis=1)]
-    zero_part = out[np.all(out == 0, axis=1)]
-    ecg= pic[pic.shape[0]-ones_part.shape[0]:, pic.shape[1]-ones_part.shape[1]:]
-    subj_data=pic[:zero_part.shape[0], :zero_part.shape[1]]
-
-    cv2.namedWindow("ecg", cv2.WINDOW_NORMAL)
-    cv2.imshow("ecg", ecg)
-    key = cv2.waitKey(0)
-
-    cv2.namedWindow("subj_data", cv2.WINDOW_NORMAL)
-    cv2.imshow("subj_data", subj_data)
-    key = cv2.waitKey(0)
 
