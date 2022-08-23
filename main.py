@@ -2,11 +2,14 @@ import pathlib
 import time
 
 import numpy as np
-import cv2, os, functions, tempfile
+import cv2, os, functions, tempfile, OCR
 
 path="C:/Users/simon/Desktop/Tesi/pyProject/ECGs/"
 outpath="C:/Users/simon/Desktop/Tesi/pyProject/optics/"
 outpath2="C:/Users/simon/Desktop/Tesi/pyProject/grid removed/"
+outpath3="C:/Users/simon/Desktop/Tesi/pyProject/cca/"
+
+
 list_of_files = os.listdir(path)
 files=[x for x in list_of_files if x.endswith(".png") or x.endswith(".jpg")]
 
@@ -23,7 +26,7 @@ for file in files:
     img_rooteted=functions.canny_houge_rotation(img)
 
     print(f"\t Cropping...")
-    ecg, subject_data=functions.crop_ecg_optics(img_rooteted)
+    ecg, subject_data=functions.crop_ecg_vs_optics(img_rooteted)
     ecg_tmp_path=os.path.join(temp_dir.name, "/", file)
 
     cv2.imwrite(ecg_tmp_path, ecg)
@@ -31,10 +34,11 @@ for file in files:
     cv2.destroyAllWindows()
 
     print(f"\t Removing grid...")
-    functions.grid_rm(img=ecg_tmp_path, path_ooutput=outpath2, file_name=file)
+    cropped=functions.crop_biggest_rect(img=ecg_tmp_path, path_ooutput=outpath2, file_name=file)
+    functions.cca_analisys(img=cropped, file_name=file, path_output=outpath3)
 
     print(f"\t Detecting opticts...")
-    functions.detect_optics(img=subject_data, path_ooutput=outpath, file_name=file)
+    OCR.detect_optics(img=subject_data, path_ooutput=outpath, file_name=file)
 
     stop=time.perf_counter()
     print(f"File {file} processed in: {stop-start}")

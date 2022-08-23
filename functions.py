@@ -1,72 +1,8 @@
-import tempfile
-
-import pytesseract
 from scipy import ndimage
 import numpy as np
-from PIL import Image
 import math
 import cv2
-import matplotlib.pyplot as plt
 
-def detect_optics (img: np.ndarray, path_ooutput: str, file_name: str):
-    pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-    # Read image from which text needs to be extracted
-
-    # Preprocessing the image starts
-
-    # Convert the image to gray scale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Performing OTSU threshold
-    ret, thresh1 = cv2.threshold(gray, 0, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)
-
-    # Specify structure shape and kernel size.
-    # Kernel size increases or decreases the area
-    # of the rectangle to be detected.
-    # A smaller value like (10, 10) will detect
-    # each word instead of a sentence.
-    rect_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (18, 18))
-
-    # Applying dilation on the threshold image
-    dilation = cv2.dilate(thresh1, rect_kernel, iterations=1)
-
-    # Finding contours
-    contours, hierarchy = cv2.findContours(dilation, cv2.RETR_EXTERNAL,
-                                           cv2.CHAIN_APPROX_NONE)
-
-    # Creating a copy of image
-    im2 = img.copy()
-
-    # A text file is created and flushed
-    file = open(str(path_ooutput+file_name+"_recognized.txt"), "w+")
-    file.write("")
-    file.close()
-
-    # Looping through the identified contours
-    # Then rectangular part is cropped and passed on
-    # to pytesseract for extracting text from it
-    # Extracted text is then written into the text file
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-
-        # Drawing a rectangle on copied image
-        rect = cv2.rectangle(im2, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-        # Cropping the text block for giving input to OCR
-        cropped = im2[y:y + h, x:x + w]
-
-        # Open the file in append mode
-        file = open(str(path_ooutput+file_name+"_recognized.txt"), "a")
-
-        # Apply OCR on the cropped image
-        text = pytesseract.image_to_string(cropped)
-
-        # Appending the text into file
-        file.write(text)
-        file.write("\n")
-
-        # Close the file
-        file.close
 
 def canny_houge_rotation(img_before: np.ndarray):
     img_gray = cv2.cvtColor(img_before, cv2.COLOR_BGR2GRAY)
@@ -92,7 +28,7 @@ def canny_houge_rotation(img_before: np.ndarray):
     '''
     return img_rotated
 
-def crop_ecg_optics (img: np.ndarray):
+def crop_ecg_vs_optics (img: np.ndarray):
     pic=img
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -134,7 +70,7 @@ def crop_ecg_optics (img: np.ndarray):
 
     return ecg, subj_data
 
-def cca_analisys (img: str, location: str):
+def cca_analisys (img: str, file_name, path_output:str):
     # Loading the image
     # preprocess the image
     gray_img = cv2.cvtColor(img,
@@ -208,38 +144,83 @@ def cca_analisys (img: str, location: str):
 
 
     cv2.destroyAllWindows()
-    name=(location+"/cca.png")
-    cv2.imwrite(name, output)
+    cv2.imwrite(str(path_output+file_name), output)
 
-    return name
 
-def grid_rm (img: str, path_ooutput:str, file_name:str):
+def crop_biggest_rect (img: str, path_ooutput:str, file_name:str):
 
-    # read image
+
     image = cv2.imread(img)
 
-    hsv = cv2.cvtColor(img1, cv2.COLOR_BGR2HSV)
+    #riquadra nuovamente l'ecg togliendo i borfi bianchi
 
-    # lower red
-    lower_red = np.array([0, 50, 50])
-    upper_red = np.array([10, 255, 255])
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255, 1, 1, 11, 2)
 
-    # upper red
-    lower_red2 = np.array([170, 50, 50])
-    upper_red2 = np.array([180, 255, 255])
+    contours, hierachy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    mask = cv2.inRange(hsv, lower_red, upper_red)
-    res = cv2.bitwise_and(image, image, mask=mask)
+    max_area = 0
+    c = 0
+    for i in contours:
+        area = cv2.contourArea(i)
+        if area > max_area:
+            max_area = area
+            best_cnt = i
+            # img = cv2.drawContours(img, contours, c, (0, 255, 0), 3)
+        c += 1
 
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    res2 = cv2.bitwise_and(image, image, mask=mask2)
+    mask = np.zeros((gray.shape), np.uint8)
+    cv2.drawContours(mask, [best_cnt], 0, 1, -1)
 
-    img3 = res + res2
-    img4 = cv2.add(res, res2)
-    img5 = cv2.addWeighted(res, 0.5, res2, 0.5, 0)
+    y_sum=np.sum(mask, axis=1)
+    y_nz=np.nonzero(y_sum)
+    y=y_nz[0][0]
+    h_end=y_nz[0][len(y_nz[0])-1]
+    h_start=y_nz[0][0]
+    h= h_end-h_start
+    x_sum=np.sum(mask, axis=0)
+    x_nz=np.nonzero(x_sum)
+    x = x_nz[0][0]
+    w_end=x_nz[0][len(x_nz[0]) - 1]
+    w_start=x_nz[0][0]
+    w = w_end-w_start
 
-    kernel = np.ones((15, 15), np.float32) / 225
-    smoothed = cv2.filter2D(res, -1, kernel)
-    smoothed2 = cv2.filter2D(img3, -1, kernel)
+    crop = image[y:y + h, x:x + w]
+
+    '''
+    # Conversion to CMYK (just the K channel):
+
+    # Convert to float and divide by 255:
+    imgFloat = img.astype(np.float) / 255.
+
+    # Calculate channel K:
+    kChannel = 1 - np.max(imgFloat, axis=2)
+
+    # Convert back to uint 8:
+    kChannel = (255 * kChannel).astype(np.uint8)
+
+    # Threshold image:
+    binaryThresh = 190
+    _, binaryImage = cv2.threshold(kChannel, binaryThresh, 255, cv2.THRESH_BINARY)
+
+    # Filter small blobs:
+    minArea = 100
+    #binaryImage = areaFilter(minArea, binaryImage)
+
+    # Use a little bit of morphology to clean the mask:
+    # Set kernel (structuring element) size:
+    kernelSize = 3
+    # Set morph operation iterations:
+    opIterations = 2
+    # Get the structuring element:
+    morphKernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelSize, kernelSize))
+    # Perform closing:
+    binaryImage = cv2.morphologyEx(binaryImage, cv2.MORPH_CLOSE, morphKernel, None, None, opIterations,
+                                   cv2.BORDER_REFLECT101)
+
+    invert = cv2.bitwise_not(binaryImage)
+    '''
     # save image
-    cv2.imwrite((path_ooutput+file_name), res)
+    cv2.imwrite((path_ooutput+file_name), crop)
+    return crop
