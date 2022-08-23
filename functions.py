@@ -1,9 +1,12 @@
+import tempfile
+
 import pytesseract
 from scipy import ndimage
 import numpy as np
 from PIL import Image
 import math
 import cv2
+import matplotlib.pyplot as plt
 
 def detect_optics (img: np.ndarray, path_ooutput: str, file_name: str):
     pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
@@ -82,10 +85,11 @@ def canny_houge_rotation(img_before: np.ndarray):
     else:
         img_rotated=img_before
 
+    '''
     cv2.namedWindow("Image Rooteted", cv2.WINDOW_NORMAL)
     cv2.imshow("Image Rooteted", img_rotated)
     key = cv2.waitKey(0)
-
+    '''
     return img_rotated
 
 def crop_ecg_optics (img: np.ndarray):
@@ -118,6 +122,7 @@ def crop_ecg_optics (img: np.ndarray):
     ecg= pic[pic.shape[0]-ones_part.shape[0]:, pic.shape[1]-ones_part.shape[1]:]
     subj_data=pic[:zero_part.shape[0], :zero_part.shape[1]]
 
+    '''
     cv2.namedWindow("ecg", cv2.WINDOW_NORMAL)
     cv2.imshow("ecg", ecg)
     key = cv2.waitKey(0)
@@ -125,81 +130,12 @@ def crop_ecg_optics (img: np.ndarray):
     cv2.namedWindow("subj_data", cv2.WINDOW_NORMAL)
     cv2.imshow("subj_data", subj_data)
     key = cv2.waitKey(0)
+    '''
 
     return ecg, subj_data
 
-
-
-
-
-
-def find_sudoku(img: str):
-    image = cv2.imread(img)
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255, 1, 1, 11, 2)
-
-    cv2.namedWindow("thresh", cv2.WINDOW_NORMAL)
-    cv2.imshow("thresh", thresh)
-    key = cv2.waitKey(0)
-
-    contours,hierachy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    max_area = 0
-    c = 0
-    for i in contours:
-        area = cv2.contourArea(i)
-        if area > max_area:
-            max_area = area
-            best_cnt = i
-            image = cv2.drawContours(image, contours, c, (0, 255, 0), 3)
-        c += 1
-
-    cv2.namedWindow("image", cv2.WINDOW_NORMAL)
-    cv2.imshow("image", image)
-    key = cv2.waitKey(0)
-
-    mask = np.zeros((gray.shape), np.uint8)
-    cv2.drawContours(mask, [best_cnt], 0, 255, -1)
-    #cv2.drawContours(mask, [best_cnt], 0, 0, 2)
-
-    out = np.zeros_like(gray)
-    out[mask == 255] = gray[mask == 255]
-
-
-    blur = cv2.GaussianBlur(out, (5, 5), 0)
-
-    cv2.namedWindow("blurred_mask", cv2.WINDOW_NORMAL)
-    cv2.imshow("blurred_mask", out)
-    key = cv2.waitKey(0)
-    """
-
-    thresh = cv2.adaptiveThreshold(blur, 255, 1, 1, 11, 2)
-
-    cv2.namedWindow("thresh", cv2.WINDOW_NORMAL)
-    cv2.imshow("thresh", thresh)
-    key = cv2.waitKey(0)
-
-    contours,hierachy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    c = 0
-    for i in contours:
-        area = cv2.contourArea(i)
-        if area > 1000 / 2:
-            cv2.drawContours(image, contours, c, (0, 255, 0), 3)
-        c += 1
-
-    cv2.namedWindow("image", cv2.WINDOW_NORMAL)
-    cv2.imshow("image", image)
-    key = cv2.waitKey(0)
-    """
-    cv2.destroyAllWindows()
-
-def cca_analisys (img: str):
+def cca_analisys (img: str, location: str):
     # Loading the image
-    img = cv2.imread(img)
-
     # preprocess the image
     gray_img = cv2.cvtColor(img,
                             cv2.COLOR_BGR2GRAY)
@@ -257,6 +193,7 @@ def cca_analisys (img: str):
             component = cv2.bitwise_or(component, componentMask)
             output = cv2.bitwise_or(output, componentMask)
 
+            '''
             # Show the final images
             cv2.namedWindow("image", cv2.WINDOW_NORMAL)
             cv2.imshow("image", new_img)
@@ -267,6 +204,42 @@ def cca_analisys (img: str):
 
             cv2.namedWindow("Filtered Components", cv2.WINDOW_NORMAL)
             cv2.imshow("Filtered Components", output)
+            '''
+
 
     cv2.destroyAllWindows()
+    name=(location+"/cca.png")
+    cv2.imwrite(name, output)
 
+    return name
+
+def grid_rm (img: str, path_ooutput:str, file_name:str):
+
+    # read image
+    image = cv2.imread(img)
+
+    hsv = cv2.cvtColor(img1, cv2.COLOR_BGR2HSV)
+
+    # lower red
+    lower_red = np.array([0, 50, 50])
+    upper_red = np.array([10, 255, 255])
+
+    # upper red
+    lower_red2 = np.array([170, 50, 50])
+    upper_red2 = np.array([180, 255, 255])
+
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(image, image, mask=mask)
+
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    res2 = cv2.bitwise_and(image, image, mask=mask2)
+
+    img3 = res + res2
+    img4 = cv2.add(res, res2)
+    img5 = cv2.addWeighted(res, 0.5, res2, 0.5, 0)
+
+    kernel = np.ones((15, 15), np.float32) / 225
+    smoothed = cv2.filter2D(res, -1, kernel)
+    smoothed2 = cv2.filter2D(img3, -1, kernel)
+    # save image
+    cv2.imwrite((path_ooutput+file_name), res)
