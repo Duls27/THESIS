@@ -2,7 +2,10 @@ from scipy import ndimage
 import numpy as np
 import math
 import cv2
-
+from sklearn.cluster import KMeans
+from colorthief import ColorThief
+import matplotlib.pyplot as plt
+from wand.image import Image
 
 def canny_houge_rotation(img_before: np.ndarray):
     img_gray = cv2.cvtColor(img_before, cv2.COLOR_BGR2GRAY)
@@ -84,9 +87,7 @@ def cca_analisys (img: str, file_name, path_output:str):
                               cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
 
     # Apply the Component analysis function
-    analysis = cv2.connectedComponentsWithStats(threshold,
-                                                4,
-                                                cv2.CV_32S)
+    analysis = cv2.connectedComponentsWithStats(threshold,4,cv2.CV_32S)
     (totalLabels, label_ids, values, centroid) = analysis
 
     # Initialize a new image to
@@ -145,7 +146,6 @@ def cca_analisys (img: str, file_name, path_output:str):
 
     cv2.destroyAllWindows()
     cv2.imwrite(str(path_output+file_name), output)
-
 
 def crop_biggest_rect (img: str, path_ooutput:str, file_name:str):
 
@@ -223,4 +223,74 @@ def crop_biggest_rect (img: str, path_ooutput:str, file_name:str):
     '''
     # save image
     cv2.imwrite((path_ooutput+file_name), crop)
-    return crop
+    return (path_ooutput+file_name)
+
+def remove_grid (img, file_name:str, path_output:str):
+    imgg = cv2.imread(img)
+    image = cv2.cvtColor(imgg, cv2.COLOR_BGR2RGB)
+
+    clt=KMeans(n_clusters=5)
+    clt_1 = clt.fit(image.reshape(-1, 3))
+    pal=palette(clt_1)
+    #show_img_compar(image, pal)
+    pal=np.unique(pal[0,:,:], axis=0)
+    pal = pal[pal[:, 0].argsort()]
+
+    lo = pal[1,:]
+    hi = pal[4,:]
+    min_lo=pal[0,:]
+
+    # Mask image to only select browns
+    mask = cv2.inRange(image, lo, hi)
+    mask_exalt= cv2.inRange(image, min_lo, lo)
+
+    # Change image to red where we found brown
+    image[mask > 0] = (255,255,255)
+    image[mask_exalt> 0] = (0,0,0)
+
+    """
+    cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
+    cv2.imshow("mask", mask)
+    key = cv2.waitKey(0)
+    cv2.namedWindow("new", cv2.WINDOW_NORMAL)
+    cv2.imshow("new", image)
+    key = cv2.waitKey(0)
+    """
+
+    intermediate_file=(path_output + file_name)
+    cv2.imwrite(intermediate_file, image)
+
+
+    with Image(filename=intermediate_file) as image:
+        krnl =  """
+        3x3:
+                -,-,-
+                -,1,-
+                -,-,-
+                """
+
+        image.auto_threshold(method='otsu')
+
+        image.morphology(method='erode', kernel=krnl, iterations=1)
+        image.connected_components(area_threshold=35, mean_color =True,connectivity=4)
+        image.save(filename=str("C:/Users/simon/Desktop/Tesi/pyProject/wand/" + file_name))
+
+
+
+
+def palette(clusters):
+    width=300
+    palette = np.zeros((50, width, 3), np.uint8)
+    steps = width/clusters.cluster_centers_.shape[0]
+    for idx, centers in enumerate(clusters.cluster_centers_):
+        palette[:, int(idx*steps):(int((idx+1)*steps)), :] = centers
+    return palette
+def show_img_compar(img_1, img_2 ):
+    f, ax = plt.subplots(1, 2, figsize=(10,10))
+    ax[0].imshow(img_1)
+    ax[1].imshow(img_2)
+    ax[0].axis('off') #hide the axis
+    ax[1].axis('off')
+    f.tight_layout()
+    plt.show()
+

@@ -7,7 +7,7 @@ import cv2, os, functions, tempfile, OCR
 path="C:/Users/simon/Desktop/Tesi/pyProject/ECGs/"
 outpath="C:/Users/simon/Desktop/Tesi/pyProject/optics/"
 outpath2="C:/Users/simon/Desktop/Tesi/pyProject/grid removed/"
-outpath3="C:/Users/simon/Desktop/Tesi/pyProject/cca/"
+outpath3="C:/Users/simon/Desktop/Tesi/pyProject/RGBImages/"
 
 
 list_of_files = os.listdir(path)
@@ -35,7 +35,7 @@ for file in files:
 
     print(f"\t Removing grid...")
     cropped=functions.crop_biggest_rect(img=ecg_tmp_path, path_ooutput=outpath2, file_name=file)
-    functions.cca_analisys(img=cropped, file_name=file, path_output=outpath3)
+    functions.remove_grid(img=cropped, file_name=file, path_output=outpath3)
 
     print(f"\t Detecting opticts...")
     OCR.detect_optics(img=subject_data, path_ooutput=outpath, file_name=file)
@@ -44,5 +44,7 @@ for file in files:
     print(f"File {file} processed in: {stop-start}")
 
     temp_dir.cleanup()
+
+    #break
 
 print("Process ENDED!")
