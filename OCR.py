@@ -67,3 +67,14 @@ def detect_optics (img: np.ndarray, path_ooutput: str, file_name: str):
 
         # Close the file
         file.close
+    return str(path_ooutput+file_name+"_recognized.txt")
+
+def get_info_patient (file: str):
+    with open(file) as fp:
+        line = fp.readline()
+        cnt = 1
+        while line:
+            line = fp.readline()
+            if "ID:" in line:
+                id=line[3:]
+                return id

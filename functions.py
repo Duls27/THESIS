@@ -18,6 +18,7 @@ def canny_houge_rotation(img_before: np.ndarray):
         angle = math.degrees(math.atan2(y2 - y1, x2 - x1))
         angles.append(angle)
 
+
     median_angle = np.median(angles)
     if median_angle != float(-90.000):
         img_rotated = ndimage.rotate(img_before, median_angle)
@@ -240,9 +241,10 @@ def remove_grid (img, file_name:str, path_output:str):
     hi = pal[4,:]
     min_lo=pal[0,:]
 
-    # Mask image to only select browns
     mask = cv2.inRange(image, lo, hi)
-    mask_exalt= cv2.inRange(image, min_lo, lo)
+    mask_exalt = cv2.inRange(image, min_lo, lo)
+
+
 
     # Change image to red where we found brown
     image[mask > 0] = (255,255,255)
@@ -256,6 +258,7 @@ def remove_grid (img, file_name:str, path_output:str):
     cv2.imshow("new", image)
     key = cv2.waitKey(0)
     """
+
 
     intermediate_file=(path_output + file_name)
     cv2.imwrite(intermediate_file, image)
@@ -275,9 +278,6 @@ def remove_grid (img, file_name:str, path_output:str):
         image.connected_components(area_threshold=35, mean_color =True,connectivity=4)
         image.save(filename=str("C:/Users/simon/Desktop/Tesi/pyProject/wand/" + file_name))
 
-
-
-
 def palette(clusters):
     width=300
     palette = np.zeros((50, width, 3), np.uint8)
@@ -285,6 +285,7 @@ def palette(clusters):
     for idx, centers in enumerate(clusters.cluster_centers_):
         palette[:, int(idx*steps):(int((idx+1)*steps)), :] = centers
     return palette
+
 def show_img_compar(img_1, img_2 ):
     f, ax = plt.subplots(1, 2, figsize=(10,10))
     ax[0].imshow(img_1)
@@ -293,4 +294,80 @@ def show_img_compar(img_1, img_2 ):
     ax[1].axis('off')
     f.tight_layout()
     plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+def isgray(imgpath):
+    img = cv2.imread(imgpath)
+    if len(img.shape) < 3: return True
+    if img.shape[2]  == 1: return True
+    b,g,r = img[:,:,0], img[:,:,1], img[:,:,2]
+    if (b==g).all() and (b==r).all(): return True
+    return False
+
+###################################
+
+# Rotates an image
+def rotate_image(image: np.ndarray, angle: float) -> np.ndarray:
+    mean_pixel = np.median(np.median(image, axis=0), axis=0)
+    image_center = tuple(np.array(image.shape[1::-1]) / 2)
+    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+    result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=mean_pixel)
+    return result
+# Returns a small value if the horizontal histogram is sharp.
+# Returns a large value if the horizontal histogram is blurry.
+def eval_image(image: np.ndarray) -> float:
+    hist = np.sum(np.mean(image, axis=1), axis=1)
+    bef = 0
+    aft = 0
+    err = 0.
+    assert(hist.shape[0] > 0)
+    for pos in range(hist.shape[0]):
+        if pos == aft:
+            bef = pos
+            while aft + 1 < hist.shape[0] and abs(hist[aft + 1] - hist[pos]) >= abs(hist[aft] - hist[pos]):
+                aft += 1
+        err += min(abs(hist[bef] - hist[pos]), abs(hist[aft] - hist[pos]))
+    assert(err > 0)
+    return err
+
+# Measures horizontal histogram sharpness across many angles
+def sweep_angles(image: np.ndarray) -> np.ndarray:
+    results = np.empty((81, 2))
+    for i in range(81):
+        angle = (i - results.shape[0] // 2) / 4.
+        rotated = rotate_image(image, angle)
+        err = eval_image(rotated)
+        results[i, 0] = angle
+        results[i, 1] = err
+    return results
+
+# Find an angle that is a lot better than its neighbors
+def find_alignment_angle(image: np.ndarray) -> float:
+    best_gain = 0
+    best_angle = 0.
+    results = sweep_angles(image)
+    for i in range(2, results.shape[0] - 2):
+        ave = np.mean(results[i-2:i+3, 1])
+        gain = ave - results[i, 1]
+        # print('angle=' + str(results[i, 0]) + ', gain=' + str(gain))
+        if gain > best_gain:
+            best_gain = gain
+            best_angle = results[i, 0]
+    return best_angle
+# input: an image that needs aligning
+# output: the aligned image
+def align_image(image: np.ndarray) -> np.ndarray:
+    angle = find_alignment_angle(image)
+    print(angle)
+    return rotate_image(image, angle)
 
