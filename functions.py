@@ -3,14 +3,13 @@ import numpy as np
 import math
 import cv2
 from sklearn.cluster import KMeans
-from colorthief import ColorThief
 import matplotlib.pyplot as plt
 from wand.image import Image
 
 def canny_houge_rotation(img_before: np.ndarray):
     img_gray = cv2.cvtColor(img_before, cv2.COLOR_BGR2GRAY)
     img_edges = cv2.Canny(img_gray, 100, 200, apertureSize=5)
-    lines = cv2.HoughLinesP(img_edges, 1, math.pi / 180.0, 100, minLineLength=100, maxLineGap=5)
+    lines = cv2.HoughLinesP(img_edges, 1, math.pi / 180.0, 100, minLineLength=200, maxLineGap=5)
 
     angles = []
     for [[x1, y1, x2, y2]] in lines:
@@ -25,11 +24,14 @@ def canny_houge_rotation(img_before: np.ndarray):
     else:
         img_rotated=img_before
 
-    '''
+    #cv2.imwrite("C:/Users/simon/Desktop/Tesi/pyProject/Canny Edges.jpeg", img_edges)
+    """
     cv2.namedWindow("Image Rooteted", cv2.WINDOW_NORMAL)
     cv2.imshow("Image Rooteted", img_rotated)
     key = cv2.waitKey(0)
-    '''
+    """
+
+
     return img_rotated
 
 def crop_ecg_vs_optics (img: np.ndarray):
@@ -245,7 +247,6 @@ def remove_grid (img, file_name:str, path_output:str):
     mask_exalt = cv2.inRange(image, min_lo, lo)
 
 
-
     # Change image to red where we found brown
     image[mask > 0] = (255,255,255)
     image[mask_exalt> 0] = (0,0,0)
@@ -258,7 +259,6 @@ def remove_grid (img, file_name:str, path_output:str):
     cv2.imshow("new", image)
     key = cv2.waitKey(0)
     """
-
 
     intermediate_file=(path_output + file_name)
     cv2.imwrite(intermediate_file, image)
@@ -287,13 +287,14 @@ def palette(clusters):
     return palette
 
 def show_img_compar(img_1, img_2 ):
-    f, ax = plt.subplots(1, 2, figsize=(10,10))
+    f, ax = plt.subplots(2, 1, figsize=(10,10))
     ax[0].imshow(img_1)
     ax[1].imshow(img_2)
     ax[0].axis('off') #hide the axis
     ax[1].axis('off')
     f.tight_layout()
     plt.show()
+
 
 
 

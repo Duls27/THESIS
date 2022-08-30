@@ -1,11 +1,5 @@
-
 import pytesseract
-import tempfile
-
-from scipy import ndimage
 import numpy as np
-
-import math
 import cv2
 
 def detect_optics (img: np.ndarray, path_ooutput: str, file_name: str):

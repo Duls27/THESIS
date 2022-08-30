@@ -1,4 +1,4 @@
-import cv2, os, functions, tempfile, OCR, time, win32com
+import cv2, os, functions, tempfile, OCR, time, win32com, numpy as np, sonne
 from win32com.client import gencache
 import win32com.client
 
@@ -8,8 +8,9 @@ outpath1="C:/Users/simon/Desktop/Tesi/pyProject/rootated/"
 outpath2="C:/Users/simon/Desktop/Tesi/pyProject/grid removed/"
 outpath3="C:/Users/simon/Desktop/Tesi/pyProject/RGBImages/"
 outpath4="C:/Users/simon/Desktop/Tesi/pyProject/digitized/"
+outpath5="C:/Users/simon/Desktop/Tesi/pyProject/wand/"
 
-
+"""
 #Preprocessing Images
 list_of_files = os.listdir(path)
 files=[x for x in list_of_files if x.endswith(".png") or x.endswith(".jpg")]
@@ -25,11 +26,9 @@ for count,file in enumerate(files):
 
     print(f"\t Rotating...")
     img_rooteted=functions.canny_houge_rotation(img)
-    cv2.imwrite(str(outpath1 + "canny" +file), img_rooteted)
-    """
-    fixme: np.ndarray = cv2.imread(path_to_img)
-    cv2.imwrite(str(outpath1+file), functions.align_image(fixme))
-    """
+    cv2.imwrite(str(outpath1 + "rootated" +file), img_rooteted)
+
+
 
     print(f"\t Cropping...")
     ecg, subject_data=functions.crop_ecg_vs_optics(img_rooteted)
@@ -55,7 +54,7 @@ for count,file in enumerate(files):
 
 #Call to ECGScan
 
-list_of_files = os.listdir(outpath3)
+list_of_files = os.listdir(outpath5)
 files=[x for x in list_of_files if x.endswith(".png") or x.endswith(".jpg")]
 
 print (f"\nNow open preprocessed Images with ECGScan")
@@ -64,7 +63,7 @@ ECGScan = win32com.client.Dispatch("ECGScan.Document")
 ret = ECGScan.ShowWin
 for count,file in enumerate(files):
     print(f"\n\tECGScan is processing file: {file}, \n\t{count+1}/{len(files)}")
-    path_to_img = str(outpath3 + str(file))
+    path_to_img = str(outpath5 + str(file))
     ECGScan.FileName = path_to_img
 
     go_on=input("\tPress any button to go on... ")
@@ -72,6 +71,12 @@ for count,file in enumerate(files):
     ECGScan.SaveFDA(str(outpath4 + file.split(sep=".")[0] + "xml"))
 
 ECGScan.CloseApplication
+"""
+#call to sonne
+results=sonne.evaluate(directory_xml=outpath4)
+
+
+
 
 
 
